@@ -6,6 +6,8 @@ import os
 import sys
 import json
 import logging
+import tempfile
+import subprocess
 
 def extract_static_routes(config: Dict[str, Any]) -> List[Tuple[str, str, Optional[str]]]:
     """
@@ -88,14 +90,58 @@ def generate_static_routes_config(config_dict: Dict[str, Any]) -> str:
         print(f"Error generating FRR configuration: {str(e)}")
         return ""  # Return empty string on error
 
+def apply_config(config_str: str) -> bool:
+    """
+    Apply the generated configuration using frr-reload.
+    
+    Args:
+        config_str: The configuration string to apply
+        
+    Returns:
+        bool: True if configuration was applied successfully, False otherwise
+    """
+    if not config_str:
+        print("No configuration to apply")
+        return False
+
+    try:
+        # Create a temporary file to store the configuration
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+            temp_file.write(config_str)
+            temp_path = temp_file.name
+
+        try:
+            # Apply the configuration using frr-reload
+            result = subprocess.run(
+                ['frr-reload', '--reload', temp_path],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            print("Configuration applied successfully")
+            return True
+
+        except subprocess.CalledProcessError as e:
+            print(f"Error applying configuration: {e.stderr}")
+            return False
+
+        finally:
+            # Clean up the temporary file
+            os.unlink(temp_path)
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return False
+
 if __name__ == "__main__":
     # Read and parse the configuration from stdin
     config = json.load(sys.stdin)
     print("\nStatic Route Configuration Received:")
     print(json.dumps(config, indent=2))
     
-    # Continue with existing functionality
-    routes = extract_static_routes(config)
+    # Generate the configuration
     config_str = generate_static_routes_config(config)
-    print("\nGenerated FRR Configuration:")
-    print(config_str)
+    
+    # Apply the configuration
+    if not apply_config(config_str):
+        sys.exit(1)  # Exit with error if configuration failed
