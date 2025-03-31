@@ -1,0 +1,77 @@
+{
+    "protocols": {
+        "bgp": {
+            "address-family": {
+                "description": "Lookup specific route",
+                "type": "node",
+                "<test>": {
+                    "description": "Lookup specific route",
+                    "type": "tagNode",
+                    "validator": "enum",
+                    "enum-values": ["ipv4-unicast", "ipv6-unicast"]
+                }
+            },
+            "neighbor": {
+                "description": "Lookup specific route",
+                "type": "node",
+                "<x.x.x.x>": {
+                    "description": "Lookup specific route",
+                    "type": "tagNode",
+                    "validator": "ip-address",
+                    "remote-as": {
+                        "description": "Next hop for the static route",
+                        "type": "node",
+                        "<1-65535>": {
+                            "description": "Lookup specific route",
+                            "type": "tagNode",
+                            "validator": "num-1-65535"
+                        }
+                    }
+                }
+            },
+            "system-as": {
+                "description": "Lookup specific route",
+                "type": "node",
+                "<1-65535>": {
+                    "description": "Lookup specific route",
+                    "type": "tagNode",
+                    "validator": "num-1-65535"
+                }
+            }
+        },
+        "static": {
+            "route": {
+                "description": "Lookup specific route",
+                "type": "node",
+                "<x.x.x.x/x>": {
+                    "description": "Lookup specific route",
+                    "type": "tagNode",
+                    "validator": "ip-prefix",
+                    "suggestor": "list_interfaces",
+                    "suggestor_args": [[]],
+                    "multi": true,
+                    "next-hop": {
+                        "description": "Next hop for the static route",
+                        "type": "node",
+                        "<x.x.x.x>": {
+                            "description": "Lookup specific route",
+                            "type": "tagNode",
+                            "validator": "ip-address",
+                            "multi": true,
+                            "distance": {
+                                "description": "Lookup specific route",
+                                "type": "node",
+                                "<1-255>": {
+                                    "description": "Lookup specific route",
+                                    "type": "tagNode",
+                                    "validator": "num-1-255"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+  

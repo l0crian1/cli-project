@@ -1,0 +1,46 @@
+{
+    "set": {
+        "description": "Set the value of a parameter or create a new element",
+        "type": "node"
+    },
+    "delete": {
+        "description": "Delete a configuration element",
+        "type": "node"
+    },
+    "discard": {
+        "description": "Discard all uncommitted changes",
+        "type": "node"
+    },
+    "compare": {
+        "description": "Compare configuration revisions",
+        "type": "node",
+        "commands": {
+            "description": "Compare configuration as commands",
+            "type": "node"
+        }
+    },
+    "show": {
+        "description": "Show the configuration (default values may be suppressed)",
+        "type": "node",
+        "commands": {
+            "description": "Show configuration as set commands",
+            "type": "node",
+            "running": {
+                "description": "Show running configuration",
+                "type": "node"
+            },
+            "candidate": {
+                "description": "Show candidate configuration (includes uncommitted changes)",
+                "type": "node"
+            }
+        },
+        "running": {
+            "description": "Show running configuration in raw format",
+            "type": "node"
+        },
+        "candidate": {
+            "description": "Show candidate configuration in raw format",
+            "type": "node"
+        }
+    }
+} 

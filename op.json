@@ -1,0 +1,580 @@
+{
+    "show": {
+      "description": "Show system information",
+      "type": "node",
+      "arp": {
+        "description": "Show Address Resolution Protocol (ARP) information",
+        "type": "leafNode",
+        "command": "${vyos_op_scripts_dir}/neighbor.py show --family inet"
+      },
+      "babel": {
+        "description": "Show Babel routing protocol information",
+        "type": "node",    
+        "interface": {
+          "description": "Show Babel Interface information",
+          "type": "leafNode",
+          "command": "vtysh -c 'show babel interface'"
+        },
+      
+        "neighbor": {
+          "description": "Show Babel neighbor information",
+          "type": "leafNode",
+          "command": "vtysh -c 'show babel neighbor'",
+          "<interface>": {
+            "description": "Show Babel neighbor information for specified interface",
+            "type": "tagNode",
+            "command": "vtysh -c 'show babel neighbor <interface>'"
+          }
+        },    
+        "route": {
+          "description": "Show Babel route information",
+          "type": "leafNode",
+          "command": "vtysh -c 'show babel route'"
+        }
+      }
+      ,
+      "bfd": {
+        "description": "Show Bidirectional Forwarding Detection (BFD)",
+        "type": "node",    
+        "<peer>": {
+          "description": "Show Bidirectional Forwarding Detection (BFD) peer status",
+          "type": "tagNode",
+          "command": "vtysh -c \"show bfd peers\" | sed -n \"/peer <peer> /,/^$/p\"",
+      
+          "counters": {
+            "description": "Show Bidirectional Forwarding Detection (BFD) peer counters",
+            "type": "leafNode",
+            "command": "vtysh -c \"show bfd peers counters\" | sed -n \"/peer <peer> /,/^$/p\""
+          }
+        },    
+        "peers": {
+          "description": "Show Bidirectional Forwarding Detection peers",
+          "type": "node",
+          "command": "vtysh -c \"show bfd peers\"",
+      
+          "counters": {
+            "description": "Show Bidirectional Forwarding Detection (BFD) peer counters",
+            "type": "leafNode",
+            "command": "vtysh -c \"show bfd peers counters\""
+          },
+      
+          "brief": {
+            "description": "Show Bidirectional Forwarding Detection (BFD) peers brief",
+            "type": "leafNode",
+            "command": "vtysh -c \"show bfd peers brief\""
+          }
+        },    
+        "static": {
+          "description": "Show route Routing Table",
+          "type": "node",
+      
+          "routes": {
+            "description": "Showing BFD monitored static routes",
+            "type": "leafNode",
+            "command": "vtysh -c \"show bfd static route\""
+          }
+        }
+      },
+      "bgp": {
+        "description": "BGP information",
+        "type": "node"
+      },
+      "bridge": {
+        "description": "Show bridging information",
+        "type": "node",    
+        "command": "${vyos_op_scripts_dir}/bridge.py show", 
+        "<bridge>": {
+          "description": "Show bridge information for a given bridge interface",
+          "type": "tagNode",
+          "suggestor": "list_interfaces",
+          "suggestor_args": [["br"]],
+          "command": "bridge -c link show | grep \"master <bridge>\"",
+      
+          "mdb": {
+            "description": "Displays the multicast group database for the bridge",
+            "type": "leafNode",
+            "command": "${vyos_op_scripts_dir}/bridge.py show_mdb --interface=<bridge>"
+          },
+      
+          "fdb": {
+            "description": "Show the forwarding database of the bridge",
+            "type": "leafNode",
+            "command": "${vyos_op_scripts_dir}/bridge.py show_fdb --interface=<bridge>"
+          },
+      
+          "detail": {
+            "description": "Display bridge interface details",
+            "type": "leafNode",
+            "command": "${vyos_op_scripts_dir}/bridge.py show_detail --interface=<bridge>"
+          },
+      
+          "nexthop-group": {
+            "description": "Display bridge interface nexthop-group",
+            "type": "leafNode",
+            "command": "${vyos_op_scripts_dir}/bridge.py show_detail --nexthop-group --interface=<bridge>"
+          },
+          "spanning-tree": {
+            "description": "View Spanning Tree info for specified bridges",
+            "type": "node",
+            "command": "${vyos_op_scripts_dir}/stp.py show_stp --ifname=<bridge>",
+      
+            "detail": {
+              "description": "Show detailed Spanning Tree info for specified bridge",
+              "type": "leafNode",
+              "command": "${vyos_op_scripts_dir}/stp.py show_stp --ifname=<bridge> --detail"
+            }
+          }
+        },
+        "spanning-tree": {
+          "description": "View Spanning Tree info for all bridges",
+          "type": "node",
+          "command": "${vyos_op_scripts_dir}/stp.py show_stp",
+      
+          "detail": {
+            "description": "Show detailed Spanning Tree info for all bridges",
+            "type": "leafNode",
+            "command": "${vyos_op_scripts_dir}/stp.py show_stp --detail"
+          }
+        },    
+        "vlan": {
+          "description": "View the VLAN filter settings of the bridge",
+          "type": "node",
+          "command": "${vyos_op_scripts_dir}/bridge.py show_vlan",
+      
+          "tunnel": {
+            "description": "Show bridge VLAN tunnel mapping",
+            "type": "leafNode",
+            "command": "${vyos_op_scripts_dir}/bridge.py show_vlan --tunnel"
+          }
+        },    
+        "vni": {
+          "description": "Virtual Network Identifier",
+          "type": "leafNode",
+          "command": "${vyos_op_scripts_dir}/bridge.py show_vni"
+        }
+      },
+      "configuration": {
+        "description": "Show available saved configurations",
+        "type": "node"
+      },
+      "conntrack": {
+        "description": "Show conntrack tables entries",
+        "type": "node",    
+        "statistics": {
+          "description": "Show conntrack statistics",
+          "type": "leafNode",
+          "command": "sudo ${vyos_op_scripts_dir}/conntrack.py show_statistics"
+        },    
+        "table": {
+          "description": "Show conntrack entries for table",
+          "type": "node",    
+          "ipv4": {
+            "description": "Show conntrack entries for IPv4 protocol",
+            "type": "leafNode",
+            "command": "sudo ${vyos_op_scripts_dir}/conntrack.py show --family inet"
+          },    
+          "ipv6": {
+            "description": "Show conntrack entries for IPv6 protocol",
+            "type": "leafNode",
+            "command": "sudo ${vyos_op_scripts_dir}/conntrack.py show --family inet6"
+          }
+        }
+      },
+      "conntrack-sync": {
+        "description": "Show connection tracking synchronization information",
+        "type": "node",    
+        "cache": {
+          "description": "Show connection tracking cache entries",
+          "type": "node",    
+          "external": {
+            "description": "Show external connection tracking cache entries",
+            "type": "node",
+            "command": "sudo ${vyos_op_scripts_dir}/conntrack_sync.py show_external_cache",    
+            "main": {
+              "description": "Show external main connection tracking cache entries",
+              "type": "leafNode",
+              "command": "sudo ${vyos_op_scripts_dir}/conntrack_sync.py show_external_cache"
+            },
+            "expect": {
+              "description": "Show external expect connection tracking cache entries",
+              "type": "leafNode",
+              "command": "sudo ${vyos_op_scripts_dir}/conntrack_sync.py show_external_expect"
+            }
+          },    
+          "internal": {
+            "description": "Show internal connection tracking cache entries",
+            "type": "node",
+            "command": "sudo ${vyos_op_scripts_dir}/conntrack_sync.py show_internal_cache",    
+            "main": {
+              "description": "Show internal main connection tracking cache entries",
+              "type": "leafNode",
+              "command": "sudo ${vyos_op_scripts_dir}/conntrack_sync.py show_internal_cache"
+            },
+            "expect": {
+              "description": "Show internal expect connection tracking cache entries",
+              "type": "leafNode",
+              "command": "sudo ${vyos_op_scripts_dir}/conntrack_sync.py show_internal_expect"
+            }
+          }
+        },    
+        "statistics": {
+          "description": "Show connection syncing statistics",
+          "type": "leafNode",
+          "command": "sudo ${vyos_op_scripts_dir}/conntrack_sync.py show_statistics"
+        },
+      
+        "status": {
+          "description": "Show conntrack-sync status",
+          "type": "leafNode",
+          "command": "sudo ${vyos_op_scripts_dir}/conntrack_sync.py show_status"
+        }
+      },
+      "console-server": {
+        "description": "Show Console-Server information",
+        "type": "node"
+      },
+      "container": {
+        "description": "Show containers",
+        "type": "node"
+      },
+      "date": {
+        "description": "Show system time and date",
+        "type": "node"
+      },
+      "dhcp": {
+        "description": "Show DHCP (Dynamic Host Configuration Protocol) information",
+        "type": "node"
+      },
+      "dhcpv6": {
+        "description": "Show DHCPv6 (IPv6 Dynamic Host Configuration Protocol) information",
+        "type": "node"
+      },
+      "disk": {
+        "description": "Show status of disk device",
+        "type": "node"
+      },
+      "dns": {
+        "description": "Show Domain Name System (DNS) related information",
+        "type": "node"
+      },
+      "environment": {
+        "description": "Show current system environmental conditions",
+        "type": "node"
+      },
+      "evpn": {
+        "description": "Show Ethernet VPN (EVPN) information",
+        "type": "node"
+      },
+      "file": {
+        "description": "Show the contents of a file, a directory or an image",
+        "type": "node"
+      },
+      "firewall": {
+        "description": "Show firewall information",
+        "type": "node"
+      },
+      "flow-accounting": {
+        "description": "Show flow accounting statistics",
+        "type": "node"
+      },
+      "hardware": {
+        "description": "Show system hardware details",
+        "type": "node"
+      },
+      "history": {
+        "description": "Show command history",
+        "type": "node"
+      },
+      "host": {
+        "description": "Show host information",
+        "type": "node"
+      },
+      "interfaces": {
+        "description": "Show network interface information",
+        "type": "node",
+        "command": "${vyos_op_scripts_dir}/interfaces.py show_summary_extended",
+  
+        "counters": {
+          "description": "Show network interface counters",
+          "type": "leafNode",
+          "command": "${vyos_op_scripts_dir}/interfaces.py show_counters"
+        },
+  
+        "detail": {
+          "description": "Show detailed information of all interfaces",
+          "type": "leafNode",
+          "command": "${vyos_op_scripts_dir}/interfaces.py show"
+        },
+  
+        "summary": {
+          "description": "Show summary information of all interfaces",
+          "type": "leafNode",
+          "command": "${vyos_op_scripts_dir}/interfaces.py show_summary"
+        }
+      },
+      "ip": {
+        "description": "Show IPv4 networking information",
+        "type": "node",
+        "access-list": {
+          "description": "Show all IP access-lists",
+          "type": "node"
+        },
+        "as-path-access-list": {
+          "description": "Show all as-path-access-lists",
+          "type": "node"
+        },
+        "bgp": {
+          "description": "Show Border Gateway Protocol (BGP) information",
+          "type": "node",
+          "command": "vtysh -c 'show ip bgp'",
+          "neighbors": {
+            "description": "Show Border Gateway Protocol (BGP) information",
+            "type": "leafNode",
+            "command": "vtysh -c 'show ip bgp neighbors'",      
+            "<neighbor>": {
+              "description": "Lookup specific route",
+              "type": "tagNode",
+              "command": "vtysh -c 'show ip bgp neighbors <neighbor>'",
+          
+              "json": {
+                "description": "Show specific route in JSON format",
+                "type": "leafNode",
+                "command": "vtysh -c 'show ip bgp neighbors <neighbor> json'"
+              }
+            }
+          },
+          "summary": {
+            "description": "Show Border Gateway Protocol (BGP) information",
+            "type": "leafNode",
+            "command": "vtysh -c 'show ip bgp summary'"
+          }
+        },
+        "community-list": {
+          "description": "Show IP community-lists",
+          "type": "node"
+        },
+        "extcommunity-list": {
+          "description": "Show extended IP community-lists",
+          "type": "node"
+        },
+        "forwarding": {
+          "description": "Show IP forwarding status",
+          "type": "node"
+        },
+        "groups": {
+          "description": "Show IP multicast group membership",
+          "type": "node"
+        },
+        "igmp": {
+          "description": "Show IGMP (Internet Group Management Protocol) information",
+          "type": "node"
+        },
+        "large-community-list": {
+          "description": "Show IP large-community-lists",
+          "type": "node"
+        },
+        "multicast": {
+          "description": "Show IP multicast",
+          "type": "node"
+        },
+        "neighbors": {
+          "description": "Show IPv4 neighbor (ARP) table",
+          "type": "node"
+        },
+        "nht": {
+          "description": "Show Nexthop tracking table",
+          "type": "leafNode",
+          "command": "vtysh -c 'show ip nht'"
+        },
+        "ospf": {
+          "description": "Show IPv4 Open Shortest Path First (OSPF) routing information",
+          "type": "node"
+        },
+        "pim": {
+          "description": "Show PIM (Protocol Independent Multicast) information",
+          "type": "node"
+        },
+        "ports": {
+          "description": "Show IP ports in use by various system services",
+          "type": "node"
+        },
+        "prefix-list": {
+          "description": "Show all IP prefix-lists",
+          "type": "node"
+        },
+        "protocol": {
+          "description": "Show IP route-maps per protocol",
+          "type": "node"
+        },
+        "rip": {
+          "description": "Show Routing Information Protocol (RIP) information",
+          "type": "node"
+        },
+        "route": {
+          "description": "Show IP routes",
+          "type": "leafNode",
+          "command": "vtysh -c 'show ip route'",
+        
+          "<destination>": {
+            "description": "Lookup specific route",
+            "type": "tagNode",
+            "validator": "ip-address-or-prefix",
+            "command": "vtysh -c 'show ip route <destination>'",
+        
+            "json": {
+              "description": "Show specific route in JSON format",
+              "type": "leafNode",
+              "command": "vtysh -c 'show ip route <destination> json'"
+            }
+          },   
+          "bgp": {
+            "description": "Border Gateway Protocol (BGP)",
+            "type": "leafNode",
+            "command": "vtysh -c 'show ip route bgp'"
+          },
+          "cache": {
+            "description": "Show kernel route cache",
+            "type": "node",
+            "command": "vtysh -c 'show ip route cache'"
+          },
+          "connected": {
+            "description": "Connected routes (directly attached subnet or host)",
+            "type": "leafNode",
+            "command": "vtysh -c 'show ip route connected'"
+          },
+          "forward": {
+            "description": "Show kernel route table",
+            "type": "leafNode",
+            "command": "vtysh -c 'show ip route forward'"
+          },
+          "isis": {
+            "description": "Intermediate System to Intermediate System (IS-IS)",
+            "type": "leafNode",
+            "command": "vtysh -c 'show ip route isis'"
+          },
+          "json": {
+            "description": "Show all IP routes in JSON format",
+            "type": "leafNode",
+            "command": "vtysh -c 'show ip route json'"
+          },    
+          "kernel": {
+            "description": "Kernel routes (not installed via the zebra RIB)",
+            "type": "leafNode",
+            "command": "vtysh -c 'show ip route kernel'"
+          },
+          "ospf": {
+            "description": "Open Shortest Path First (OSPFv2)",
+            "type": "leafNode",
+            "command": "vtysh -c 'show ip route ospf'"
+          },
+          "rip": {
+            "description": "Routing Information Protocol (RIP)",
+            "type": "leafNode",
+            "command": "vtysh -c 'show ip route rip'"
+          },
+          "static": {
+            "description": "Statically configured routes",
+            "type": "leafNode",
+            "command": "vtysh -c 'show ip route static'"
+          },
+          "summary": {
+            "description": "Summary of all routes",
+            "type": "leafNode",
+            "command": "vtysh -c 'show ip route summary'"
+          },
+          "supernets-only": {
+            "description": "Show supernet entries only",
+            "type": "leafNode"
+          },
+          "table": {
+            "description": "Table to display",
+            "type": "node"
+          },
+          "tag": {
+            "description": "Show only routes with tag",
+            "type": "node"
+          },
+          "vrf": {
+            "description": "Show IP routes in VRF",
+            "type": "node",
+  
+            "<vrf-name>": {
+              "description": "Name of the VRF",
+              "type": "tagNode",
+              "validator": "vrf-name",
+              "command": "vtysh -c 'show ip route vrf <vrf-name>'",    
+              "<destination>": {
+                "description": "Route to look up",
+                "type": "tagNode",
+                "validator": "ip-address-or-prefix",
+                "command": "vtysh -c 'show ip route vrf <vrf-name> <destination>'"
+              }
+            }
+          }
+        }
+      },
+      "ipoe-server": {
+        "description": "Show IPoE (Internet Protocol over Ethernet) server status",
+        "type": "node"
+      },
+      "ipv6": {
+        "description": "Show IPv6 routing information",
+        "type": "node"
+      },
+      "isis": {
+        "description": "Show IS-IS routing protocol",
+        "type": "node"
+      },
+      "l2tp-server": {
+        "description": "Show L2TP server information",
+        "type": "node"
+      },
+      "license": {
+        "description": "Show VyOS license information",
+        "type": "node"
+      },
+      "lldp": {
+        "description": "Show LLDP (Link Layer Discovery Protocol)",
+        "type": "node"
+      },
+      "log": {
+        "description": "Show contents of current master logging buffer",
+        "type": "node"
+      },
+      "login": {
+        "description": "Show current login credentials",
+        "type": "node"
+      },
+      "monitoring": {
+        "description": "Show currently monitored services",
+        "type": "node"
+      },
+      "mpls": {
+        "description": "Show Multiprotocol Label Switching (MPLS)",
+        "type": "node"
+      },
+      "nat": {
+        "description": "Show IPv4 Network Address Translation (NAT) information",
+        "type": "leafNode",
+        "command": "vtysh -c 'show ip route connected'"
+      },
+      "nat66": {
+        "description": "Show IPv6 Network Address Translation (NAT66) information",
+        "type": "leafNode",
+        "command": "vtysh -c 'show ip route connected'"
+      },
+      "netns": {
+        "description": "Show network namespace information",
+        "type": "node"
+      },
+      "nhrp": {
+        "description": "Show NHRP",
+        "type": "node"
+      }
+    },
+    "configure": {
+      "description": "Enter configuration mode",
+      "type": "node"
+    }
+  }
+  

@@ -1,0 +1,18 @@
+{# FRR Configuration Template #}
+{# This template generates a basic FRR configuration with static routes #}
+
+{# Basic FRR configuration #}
+frr version 10.2.2
+frr defaults datacenter
+hostname router
+no ipv6 forwarding
+service integrated-vtysh-config
+
+{# Static routes configuration #}
+{% for prefix, next_hop, distance in static_routes -%}
+ip route {{ prefix }} {{ next_hop }}{% if distance %} {{ distance }}{% endif %}
+{% endfor %}
+
+{# VTY configuration #}
+line vty
+end
