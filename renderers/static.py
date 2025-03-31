@@ -3,6 +3,9 @@
 from typing import Dict, List, Tuple, Any, Optional, Union
 from jinja2 import Environment, FileSystemLoader, Template
 import os
+import sys
+import json
+import logging
 
 def extract_static_routes(config: Dict[str, Any]) -> List[Tuple[str, str, Optional[str]]]:
     """
@@ -84,3 +87,15 @@ def generate_static_routes_config(config_dict: Dict[str, Any]) -> str:
     except Exception as e:
         print(f"Error generating FRR configuration: {str(e)}")
         return ""  # Return empty string on error
+
+if __name__ == "__main__":
+    # Read and parse the configuration from stdin
+    config = json.load(sys.stdin)
+    print("\nStatic Route Configuration Received:")
+    print(json.dumps(config, indent=2))
+    
+    # Continue with existing functionality
+    routes = extract_static_routes(config)
+    config_str = generate_static_routes_config(config)
+    print("\nGenerated FRR Configuration:")
+    print(config_str)

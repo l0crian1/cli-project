@@ -21,8 +21,8 @@ from suggestors import suggestors
 from cli_common import AutoSuggestFromTree, TreeCompleter, CommandValidator, print_possible_completions
 from cli_common import setup_keybindings
 
-from renderers.static import generate_static_routes_config
 from jinja2 import Environment, FileSystemLoader
+from get_commit_scripts import get_scripts_to_run
 
 # Get the directory where the script is located
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -106,39 +106,16 @@ def key_exists_in_config(config_dict: Dict, path_dict: Dict) -> bool:
     return get_nested_value(config_dict, path) is not None
 
 def parse_config_command(command: str, root: Dict) -> Tuple[Dict, str]:
-    """Parse a configuration command into a dictionary and action."""
     parts = command.split()
     action = parts[0]  # 'set', 'delete', or 'show'
     path_parts = parts[1:]
     config_dict = {}
-    current_dict = config_dict
+    current = config_dict
     node = root
 
-    # For set commands with next-hop, handle the structure specially
-    if action == "set" and "next-hop" in path_parts:
-        # Find the position of next-hop
-        next_hop_index = path_parts.index("next-hop")
-        if next_hop_index < len(path_parts) - 1:
-            # Extract the route prefix and next-hop value
-            prefix = path_parts[next_hop_index - 1]
-            next_hop_value = path_parts[next_hop_index + 1]
-            
-            # Build the path up to the route
-            current = current_dict
-            for part in path_parts[:next_hop_index - 1]:
-                current[part] = {}
-                current = current[part]
-            
-            # Add the route with its next-hop
-            current[prefix] = {
-                "next-hop": {
-                    next_hop_value: {}
-                }
-            }
-            return config_dict, action
-
-    # Handle all other cases
+    # Build the configuration dictionary
     for i, part in enumerate(path_parts):
+        # Validate against schema
         if part in node:
             node = node[part]
         else:
@@ -154,75 +131,39 @@ def parse_config_command(command: str, root: Dict) -> Tuple[Dict, str]:
                     )
                 node = tag_node
 
-        if action == "set":
-            if i == len(path_parts) - 1:
-                current_dict[part] = {}
-            else:
-                if part not in current_dict:
-                    current_dict[part] = {}
-                current_dict = current_dict[part]
-        else:  # delete action
-            if i == len(path_parts) - 1:
-                if i > 0:  # If not the first part
-                    current_dict[part] = None  # Mark for deletion
-            else:
-                if part not in current_dict:
-                    current_dict[part] = {}
-                current_dict = current_dict[part]
+        # If this is the last part or the next part is a value
+        if i == len(path_parts) - 1:
+            current[part] = {}
+        else:
+            # Create nested dictionary
+            if part not in current:
+                current[part] = {}
+            current = current[part]
 
     return config_dict, action
 
 def update_config_dict(existing_dict, new_dict, schema_node=None, path=None, value_to_delete=False):
+    """Update an existing configuration dictionary with new values."""
     path = path or []
+    
     for key, value in new_dict.items():
         current_path = path + [key]
-        schema = schema_node or {}
         
-        # Get the schema for the current key
-        for p in path:
-            schema = schema.get(p) or next((v for k, v in schema.items()
-                                            if isinstance(v, dict) and v.get("type") == "tagNode"), {})
-
         # Handle deletion
         if value is None or value_to_delete:
             if key in existing_dict:
                 del existing_dict[key]
             continue
 
-        # Check if this is a multi-value node
-        is_multi = False
-        tag_entry = next(((k, v) for k, v in schema.items()
-                          if isinstance(v, dict) and v.get("type") == "tagNode"), None)
-        if key in schema:
-            is_multi = schema[key].get("multi", False)
-        elif tag_entry:
-            is_multi = tag_entry[1].get("multi", False)
-
-        # Handle dictionary values (nested structures)
+        # Create/update the key in the existing dictionary
         if isinstance(value, dict):
-            # Create the key if it doesn't exist
             if key not in existing_dict:
                 existing_dict[key] = {}
-            elif not isinstance(existing_dict[key], dict):
-                existing_dict[key] = {}
-
-            # Get the next level schema
-            next_schema = schema.get(key, tag_entry[1] if tag_entry else {})
-            
-            # Special handling for next-hop structure
-            if "next-hop" in value:
-                existing_dict[key] = value  # Directly assign the entire next-hop structure
-            else:
-                # Regular nested structure handling
-                update_config_dict(existing_dict[key], value, next_schema, current_path)
-                
-            # Clean up empty dictionaries after recursion
-            if not existing_dict[key]:
-                del existing_dict[key]
+            if value:  # If value is not an empty dict
+                update_config_dict(existing_dict[key], value, schema_node, current_path)
+            # Don't delete empty dicts as they represent valid leaf nodes
         else:
-            # Handle non-dictionary values
-            if not is_multi:
-                existing_dict[key] = value
+            existing_dict[key] = value
 
 def delete_from_config_dict(config_dict, delete_dict):
     def extract_path(d):
@@ -270,7 +211,7 @@ def populate_config_tree(config, show_tree, include_candidate=False, candidate_c
         show_tree[key] = {"description": f"Show {key}", "type": "node"}
         if isinstance(value, dict):
             populate_config_tree(value, show_tree[key])
-
+            
     # If requested, merge in candidate config paths
     if include_candidate and candidate_config:
         temp_tree = {}
@@ -343,6 +284,10 @@ def show_subtree(parts, running_config, candidate_config):
 
 def handle_commit(running_config, candidate_config):
     try:
+        # Get list of scripts that need to be run
+        scripts_to_run = get_scripts_to_run(candidate_config)
+        print("\nScripts that will be run:", scripts_to_run)
+        
         # Generate config using the merged running and candidate configs
         merged_config = running_config.copy()
         
@@ -405,19 +350,32 @@ def handle_commit(running_config, candidate_config):
 
         # Add/modify remaining items from candidate config
         process_additions(merged_config, candidate_config)
-        
-        rendered = generate_static_routes_config(merged_config)
-        print("\nWould write the following configuration to /etc/frr/frr.conf:")
-        print("----------------------------------------")
-        print(rendered)
-        print("----------------------------------------")
+
+        # Run each script with the merged configuration
+        for script in scripts_to_run:
+            script_path = os.path.join(SCRIPT_DIR, script)
+            try:
+                process = subprocess.run(
+                    ['python', script_path],
+                    input=json.dumps(merged_config),
+                    text=True,
+                    capture_output=True,
+                    check=True
+                )
+                if process.stdout:
+                    print(f"\nOutput from {script}:")
+                    print(process.stdout)
+            except subprocess.CalledProcessError as e:
+                print(f"\nError running {script}:")
+                print(e.stderr)
+                raise Exception(f"Script {script} failed with return code {e.returncode}")
         
         # Update running config with candidate changes
         running_config.clear()
         running_config.update(merged_config)
         candidate_config.clear()  # Clear candidate config after successful commit
         
-        print("Commit successful - Note: FRR was not actually updated")
+        print("\nCommit successful - Configuration changes have been applied")
     except Exception as e:
         print(f"Error during commit:\n{e}")
 

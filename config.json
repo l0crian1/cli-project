@@ -1,6 +1,7 @@
 {
     "protocols": {
         "bgp": {
+            "script": "renderers/bgp.py",
             "address-family": {
                 "description": "Lookup specific route",
                 "type": "node",
@@ -40,6 +41,7 @@
             }
         },
         "static": {
+            "script": "renderers/static.py",
             "route": {
                 "description": "Lookup specific route",
                 "type": "node",
