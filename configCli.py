@@ -356,7 +356,7 @@ def handle_commit(running_config, candidate_config):
             script_path = os.path.join(SCRIPT_DIR, script)
             try:
                 process = subprocess.run(
-                    ['python', script_path],
+                    ['python3', script_path],
                     input=json.dumps(merged_config),
                     text=True,
                     capture_output=True,
