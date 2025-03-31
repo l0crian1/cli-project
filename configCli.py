@@ -353,7 +353,7 @@ def handle_commit(running_config, candidate_config):
 
         # Run each script with the merged configuration
         for script in scripts_to_run:
-            script_path = os.path.join(SCRIPT_DIR, script)
+            script_path = script  # Use the script path as-is from config.json
             try:
                 process = subprocess.run(
                     ['python3', script_path],
