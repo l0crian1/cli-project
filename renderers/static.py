@@ -92,7 +92,7 @@ def generate_static_routes_config(config_dict: Dict[str, Any]) -> str:
 
 def apply_config(config_str: str) -> bool:
     """
-    Apply the generated configuration using frr-reload.
+    Apply the generated configuration using frr-reload.py.
     
     Args:
         config_str: The configuration string to apply
@@ -111,14 +111,25 @@ def apply_config(config_str: str) -> bool:
             temp_path = temp_file.name
 
         try:
-            # Apply the configuration using frr-reload
+            # Apply the configuration using frr-reload.py with VyOS settings
+            frr_debug_enable = '/etc/frr/debug.conf'
+            cmd = ['/usr/lib/frr/frr-reload.py', '--reload']
+            
+            # Add debug options if debug is enabled
+            if os.path.exists(frr_debug_enable):
+                cmd.extend(['--debug', '--stdout'])
+                
+            cmd.append(temp_path)
+            
             result = subprocess.run(
-                ['frr-reload', '--reload', temp_path],
+                cmd,
                 capture_output=True,
                 text=True,
                 check=True
             )
             print("Configuration applied successfully")
+            if result.stdout:
+                print(result.stdout)
             return True
 
         except subprocess.CalledProcessError as e:
