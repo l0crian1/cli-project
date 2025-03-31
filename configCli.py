@@ -194,7 +194,7 @@ def delete_from_config_dict(config_dict, delete_dict):
     key_path = extract_path(delete_dict)
     return _delete_path(config_dict, key_path)
 
-def populate_config_tree(config, show_tree, include_candidate=False, candidate_config=None):
+def populate_config_tree(config, show_tree, include_candidate=False, candidate_config=None, schema=None):
     """
     Populate the command tree with configuration paths.
     If include_candidate is True, also include paths from the candidate configuration.
@@ -206,20 +206,50 @@ def populate_config_tree(config, show_tree, include_candidate=False, candidate_c
             elif isinstance(tree1[key], dict) and isinstance(value, dict):
                 merge_trees(tree1[key], value)
 
+    def get_schema_node(key, current_schema):
+        if not current_schema:
+            return None
+        # First check if this is a direct child
+        if key in current_schema:
+            return current_schema[key]
+        # Then check if we have a tagNode that would match
+        for k, v in current_schema.items():
+            if isinstance(v, dict) and v.get("type") == "tagNode":
+                return v
+        return None
+
     # First populate with running config
     for key, value in config.items():
-        show_tree[key] = {"description": f"Show {key}", "type": "node"}
-        if isinstance(value, dict):
-            populate_config_tree(value, show_tree[key])
+        
+        # Get the schema node for this key
+        schema_node = get_schema_node(key, schema)
+        
+        # If this key is under a tagNode or is a configured value, don't add a description
+        if schema_node and schema_node.get("type") == "tagNode":
+            show_tree[key] = {"type": "node"}
+        else:
+            show_tree[key] = {"description": f"Show {key}", "type": "node"}
             
+        if isinstance(value, dict):
+            populate_config_tree(value, show_tree[key], schema=schema_node)
+
     # If requested, merge in candidate config paths
     if include_candidate and candidate_config:
         temp_tree = {}
         for key, value in candidate_config.items():
             if value is not None:  # Skip deleted paths
-                temp_tree[key] = {"description": f"Show {key}", "type": "node"}
+                
+                # Get the schema node for this key
+                schema_node = get_schema_node(key, schema)
+                
+                # If this key is under a tagNode or is a configured value, don't add a description
+                if schema_node and schema_node.get("type") == "tagNode":
+                    temp_tree[key] = {"type": "node"}
+                else:
+                    temp_tree[key] = {"description": f"Show {key}", "type": "node"}
+                    
                 if isinstance(value, dict):
-                    populate_config_tree(value, temp_tree[key])
+                    populate_config_tree(value, temp_tree[key], schema=schema_node)
         merge_trees(show_tree, temp_tree)
 
 def dict_to_set_commands(config_dict, current_path=None, show_deletions=False):
@@ -270,6 +300,17 @@ def show_subtree(parts, running_config, candidate_config):
             print(json.dumps(candidate_config, indent=2))
             return
     
+    # For bare 'show' command or 'show <path>'
+    if len(parts) == 1:  # Just 'show'
+        if candidate_config:  # If candidate config is not empty
+            print("Candidate configuration (uncommitted changes):")
+            print(json.dumps(candidate_config, indent=2))
+        else:  # If candidate config is empty
+            print("Running configuration:")
+            print(json.dumps(running_config, indent=2))
+        return
+        
+    # For 'show <path>', use merged config
     merged_config = running_config.copy()
     update_config_dict(merged_config, candidate_config)
     node = merged_config
@@ -384,7 +425,6 @@ def handle_delete_command(running_config, candidate_config, parsed_command, part
     if key_exists_in_config(candidate_config, parsed_command):
         # If it exists in candidate, delete it from there
         delete_from_config_dict(candidate_config, parsed_command)
-        print("\nConfiguration change will take effect after commit")
         return
     
     # If not in candidate, check if it exists in running config
@@ -400,7 +440,6 @@ def handle_delete_command(running_config, candidate_config, parsed_command, part
                     config_dict[key] = None
 
         mark_for_deletion(candidate_config, parsed_command)
-        print("\nConfiguration change will take effect after commit")
         return
     
     # If path doesn't exist in either config
@@ -517,8 +556,9 @@ def main():
     candidate_config = {}  # Initialize empty candidate config
     
     # Initialize command trees with running config only
-    populate_config_tree(running_config, commands_json["show"])
-    populate_config_tree(running_config, commands_json["delete"], include_candidate=True, candidate_config=candidate_config)
+    populate_config_tree(running_config, commands_json["show"], schema=commands_json["set"])  # Use set schema for show
+    populate_config_tree(running_config, commands_json["delete"], include_candidate=True, 
+                        candidate_config=candidate_config, schema=commands_json["set"])  # Use set schema for delete
 
     print("Entering configuration mode (type 'exit' to quit, use '?' to list options)\n")
     restore_text = None
@@ -540,8 +580,9 @@ def main():
                 if user_input == "commit":
                     handle_commit(running_config, candidate_config)
                     # After commit, update command trees with new running config
-                    populate_config_tree(running_config, commands_json["show"])
-                    populate_config_tree(running_config, commands_json["delete"], include_candidate=True, candidate_config=candidate_config)
+                    populate_config_tree(running_config, commands_json["show"], schema=commands_json["set"])
+                    populate_config_tree(running_config, commands_json["delete"], include_candidate=True, 
+                                      candidate_config=candidate_config, schema=commands_json["set"])
                     continue
                 if user_input == "save":
                     save_current_config(running_config)
@@ -550,8 +591,9 @@ def main():
                     candidate_config.clear()  # Clear all candidate changes
                     print("\nDiscarded all uncommitted changes")
                     # Update command trees after discarding changes
-                    populate_config_tree(running_config, commands_json["show"])
-                    populate_config_tree(running_config, commands_json["delete"], include_candidate=True, candidate_config=candidate_config)
+                    populate_config_tree(running_config, commands_json["show"], schema=commands_json["set"])
+                    populate_config_tree(running_config, commands_json["delete"], include_candidate=True, 
+                                      candidate_config=candidate_config, schema=commands_json["set"])
                     continue
 
                 restore_text = None
@@ -567,35 +609,22 @@ def main():
 
                     if action == "set":
                         update_config_dict(candidate_config, parsed_command, commands_json)
-                        print("\nConfiguration change will take effect after commit")
                         # Update command trees to include new candidate config
-                        populate_config_tree(running_config, commands_json["show"])
-                        populate_config_tree(running_config, commands_json["delete"], include_candidate=True, candidate_config=candidate_config)
+                        populate_config_tree(running_config, commands_json["show"], schema=commands_json["set"])
+                        populate_config_tree(running_config, commands_json["delete"], include_candidate=True, 
+                                          candidate_config=candidate_config, schema=commands_json["set"])
                     elif action == "delete":
                         handle_delete_command(running_config, candidate_config, parsed_command, parts)
                         # Update command trees after deletion
-                        populate_config_tree(running_config, commands_json["show"])
-                        populate_config_tree(running_config, commands_json["delete"], include_candidate=True, candidate_config=candidate_config)
+                        populate_config_tree(running_config, commands_json["show"], schema=commands_json["set"])
+                        populate_config_tree(running_config, commands_json["delete"], include_candidate=True, 
+                                          candidate_config=candidate_config, schema=commands_json["set"])
                     elif action == "show":
                         show_subtree(parts, running_config, candidate_config)
 
                 except ValidationError as ve:
                     print(f"\n{ve.message}\n")
-                    node = commands_json
-                    rollback_index = 0
-                    for i, part in enumerate(parts):
-                        if part in node:
-                            node = node[part]
-                            rollback_index = i + 1
-                        else:
-                            tag_entry = next(((k, v) for k, v in node.items()
-                                              if isinstance(v, dict) and v.get("type") == "tagNode"), None)
-                            if tag_entry:
-                                node = tag_entry[1]
-                                rollback_index = i
-                            else:
-                                break
-                    restore_text = " ".join(parts[:rollback_index]) + " "
+                    restore_text = ""  # Reset to empty prompt instead of restoring to last keyword
                     continue
 
         except KeyboardInterrupt:
