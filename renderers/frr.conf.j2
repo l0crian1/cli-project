@@ -10,8 +10,7 @@ service integrated-vtysh-config
 
 {# Static routes configuration #}
 {% for prefix, next_hop, distance in static_routes %}
-ip route {{ prefix }} {{ next_hop }}{% if distance %} {{ distance }}{% endif %}
-{% endfor %}
+ip route {{ prefix }} {{ next_hop }}{% if distance %} {{ distance }}{% endif %}{{ '\n' }}{% endfor %}
 
 {# VTY configuration #}
 line vty
