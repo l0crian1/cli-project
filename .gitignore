@@ -34,4 +34,7 @@ env/
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Project specific
+router-config.json   # Saved configuration file 
