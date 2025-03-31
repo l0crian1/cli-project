@@ -114,6 +114,30 @@ def parse_config_command(command: str, root: Dict) -> Tuple[Dict, str]:
     current_dict = config_dict
     node = root
 
+    # For set commands with next-hop, handle the structure specially
+    if action == "set" and "next-hop" in path_parts:
+        # Find the position of next-hop
+        next_hop_index = path_parts.index("next-hop")
+        if next_hop_index < len(path_parts) - 1:
+            # Extract the route prefix and next-hop value
+            prefix = path_parts[next_hop_index - 1]
+            next_hop_value = path_parts[next_hop_index + 1]
+            
+            # Build the path up to the route
+            current = current_dict
+            for part in path_parts[:next_hop_index - 1]:
+                current[part] = {}
+                current = current[part]
+            
+            # Add the route with its next-hop
+            current[prefix] = {
+                "next-hop": {
+                    next_hop_value: {}
+                }
+            }
+            return config_dict, action
+
+    # Handle all other cases
     for i, part in enumerate(path_parts):
         if part in node:
             node = node[part]
@@ -130,16 +154,21 @@ def parse_config_command(command: str, root: Dict) -> Tuple[Dict, str]:
                     )
                 node = tag_node
 
-        if i == len(path_parts) - 1:
-            if action == "set":
+        if action == "set":
+            if i == len(path_parts) - 1:
                 current_dict[part] = {}
             else:
+                if part not in current_dict:
+                    current_dict[part] = {}
+                current_dict = current_dict[part]
+        else:  # delete action
+            if i == len(path_parts) - 1:
                 if i > 0:  # If not the first part
                     current_dict[part] = None  # Mark for deletion
-        else:
-            if part not in current_dict:
-                current_dict[part] = {}
-            current_dict = current_dict[part]
+            else:
+                if part not in current_dict:
+                    current_dict[part] = {}
+                current_dict = current_dict[part]
 
     return config_dict, action
 
@@ -148,6 +177,8 @@ def update_config_dict(existing_dict, new_dict, schema_node=None, path=None, val
     for key, value in new_dict.items():
         current_path = path + [key]
         schema = schema_node or {}
+        
+        # Get the schema for the current key
         for p in path:
             schema = schema.get(p) or next((v for k, v in schema.items()
                                             if isinstance(v, dict) and v.get("type") == "tagNode"), {})
@@ -155,9 +186,10 @@ def update_config_dict(existing_dict, new_dict, schema_node=None, path=None, val
         # Handle deletion
         if value is None or value_to_delete:
             if key in existing_dict:
-                del existing_dict[key]  # Actually delete the key instead of marking it
+                del existing_dict[key]
             continue
 
+        # Check if this is a multi-value node
         is_multi = False
         tag_entry = next(((k, v) for k, v in schema.items()
                           if isinstance(v, dict) and v.get("type") == "tagNode"), None)
@@ -166,17 +198,29 @@ def update_config_dict(existing_dict, new_dict, schema_node=None, path=None, val
         elif tag_entry:
             is_multi = tag_entry[1].get("multi", False)
 
+        # Handle dictionary values (nested structures)
         if isinstance(value, dict):
-            if not is_multi and key in existing_dict and not isinstance(existing_dict[key], dict):
+            # Create the key if it doesn't exist
+            if key not in existing_dict:
                 existing_dict[key] = {}
-            if key not in existing_dict or not isinstance(existing_dict[key], dict):
+            elif not isinstance(existing_dict[key], dict):
                 existing_dict[key] = {}
+
+            # Get the next level schema
             next_schema = schema.get(key, tag_entry[1] if tag_entry else {})
-            update_config_dict(existing_dict[key], value, next_schema, current_path)
+            
+            # Special handling for next-hop structure
+            if "next-hop" in value:
+                existing_dict[key] = value  # Directly assign the entire next-hop structure
+            else:
+                # Regular nested structure handling
+                update_config_dict(existing_dict[key], value, next_schema, current_path)
+                
             # Clean up empty dictionaries after recursion
             if not existing_dict[key]:
                 del existing_dict[key]
         else:
+            # Handle non-dictionary values
             if not is_multi:
                 existing_dict[key] = value
 
