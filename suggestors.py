@@ -14,8 +14,6 @@ def list_interfaces(prefixes: Optional[Union[List[str], str]] = None) -> List[st
     Returns:
         List of interface names sorted alphabetically
     """
-    print(f"DEBUG: list_interfaces called with prefixes={prefixes}")  # Debug print
-    
     interface_filter = [
         'eth', 'bond', 'br', 'dum', 'gnv', 'ifb', 'l2tpeth', 'lo', 'macsec', 'peth',
         'pppoe', 'sstpc', 'tun', 'veth', 'vti', 'vtun', 'vxlan', 'wlan', 'wg',
@@ -35,10 +33,8 @@ def list_interfaces(prefixes: Optional[Union[List[str], str]] = None) -> List[st
             return []
             
         interfaces = os.listdir(net_dir)
-        result = sorted([iface for iface in interfaces 
+        return sorted([iface for iface in interfaces 
                       if any(iface.startswith(p) for p in prefixes)])
-        print(f"DEBUG: Found interfaces: {result}")  # Debug print
-        return result
                 
     except PermissionError:
         print(f"Warning: Permission denied accessing {net_dir}")

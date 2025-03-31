@@ -192,21 +192,16 @@ def _get_completion_rows(node: Dict[str, Any]) -> List[List[str]]:
 
 def _get_suggestor_rows(node: Dict[str, Any]) -> List[List[str]]:
     """Get completion rows from a suggestor."""
-    print(f"DEBUG: _get_suggestor_rows called with node={node}")  # Debug print
     rows = []
     sugg_name = node["suggestor"]
     args = node.get("suggestor_args", [])
-    print(f"DEBUG: Calling suggestor {sugg_name} with args={args}")  # Debug print
     if sugg_name in suggestors:
         try:
             suggestions = suggestors[sugg_name](*args)
-            print(f"DEBUG: Got suggestions: {suggestions}")  # Debug print
             rows.extend([[s, ""] for s in suggestions])
         except Exception as e:
-            print(f"DEBUG: Error calling suggestor: {e}")  # Debug print
             rows.append([f"<error calling {sugg_name}>", str(e)])
     else:
-        print(f"DEBUG: Suggestor {sugg_name} not found")  # Debug print
         rows.append([f"<missing suggestor: {sugg_name}>", ""])
     return rows
 
