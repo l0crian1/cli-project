@@ -47,8 +47,6 @@
                     "description": "Lookup specific route",
                     "type": "tagNode",
                     "validator": "ip-prefix",
-                    "suggestor": "list_interfaces",
-                    "suggestor_args": [[]],
                     "multi": true,
                     "next-hop": {
                         "description": "Next hop for the static route",
@@ -57,6 +55,8 @@
                             "description": "Lookup specific route",
                             "type": "tagNode",
                             "validator": "ip-address",
+                            "suggestor": "list_interfaces",
+                            "suggestor_args": ["eth"],
                             "multi": true,
                             "distance": {
                                 "description": "Lookup specific route",
