@@ -8,6 +8,7 @@ import json
 import logging
 import tempfile
 import subprocess
+import platform
 
 def extract_static_routes(config: Dict[str, Any]) -> List[Tuple[str, str, Optional[str]]]:
     """
@@ -92,7 +93,8 @@ def generate_static_routes_config(config_dict: Dict[str, Any]) -> str:
 
 def apply_config(config_str: str) -> bool:
     """
-    Apply the generated configuration using frr-reload.py.
+    Apply the generated configuration. On Windows, just print the config.
+    On Linux, use frr-reload.py to apply it.
     
     Args:
         config_str: The configuration string to apply
@@ -105,7 +107,15 @@ def apply_config(config_str: str) -> bool:
         return False
 
     try:
-        # Create a temporary file to store the configuration
+        # On Windows, just print the configuration
+        if platform.system() == "Windows":
+            print("\nGenerated FRR Configuration:")
+            print("---------------------------")
+            print(config_str)
+            print("---------------------------")
+            return True
+
+        # On Linux, use frr-reload.py
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
             temp_file.write(config_str)
             temp_path = temp_file.name
