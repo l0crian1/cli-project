@@ -220,16 +220,16 @@ def populate_config_tree(config, show_tree, include_candidate=False, candidate_c
 
     # First populate with running config
     for key, value in config.items():
-        
+
         # Get the schema node for this key
         schema_node = get_schema_node(key, schema)
-        
+
         # If this key is under a tagNode or is a configured value, don't add a description
         if schema_node and schema_node.get("type") == "tagNode":
-            show_tree[key] = {"type": "node"}
+            #print(json.dumps(schema_node.get("description"),indent=4))
+            show_tree[key] = {"type": "tagNode"}
         else:
-            show_tree[key] = {"description": f"Show {key}", "type": "node"}
-            
+            show_tree[key] = {"description": schema_node.get("description", "")}
         if isinstance(value, dict):
             populate_config_tree(value, show_tree[key], schema=schema_node)
 
@@ -238,19 +238,19 @@ def populate_config_tree(config, show_tree, include_candidate=False, candidate_c
         temp_tree = {}
         for key, value in candidate_config.items():
             if value is not None:  # Skip deleted paths
-                
+
                 # Get the schema node for this key
                 schema_node = get_schema_node(key, schema)
-                
+
                 # If this key is under a tagNode or is a configured value, don't add a description
                 if schema_node and schema_node.get("type") == "tagNode":
-                    temp_tree[key] = {"type": "node"}
+                    temp_tree[key] = {"type": "tagNode"}
                 else:
-                    temp_tree[key] = {"description": f"Show {key}", "type": "node"}
-                    
+                    temp_tree[key] = {"description": schema_node.get("description", "")}
                 if isinstance(value, dict):
                     populate_config_tree(value, temp_tree[key], schema=schema_node)
         merge_trees(show_tree, temp_tree)
+
 
 def dict_to_set_commands(config_dict, current_path=None, show_deletions=False):
     if current_path is None:
