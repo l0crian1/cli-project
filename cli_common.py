@@ -3,7 +3,7 @@
 # cli_common.py
 import os
 from typing import Dict, List, Optional, Any, Iterator, Tuple, Callable
-    
+
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.application.run_in_terminal import run_in_terminal
 from prompt_toolkit.document import Document
@@ -18,7 +18,7 @@ from suggestors import suggestors
 
 class AutoSuggestFromTree(AutoSuggest):
     """Provides auto-suggestions based on a command tree structure."""
-    
+
     def __init__(self, root: Dict[str, Any]):
         self.root = root
 
@@ -53,7 +53,7 @@ class AutoSuggestFromTree(AutoSuggest):
 
 class TreeCompleter(Completer):
     """Provides command completion based on a tree structure."""
-    
+
     def __init__(self, tree: Dict[str, Any]):
         self.tree = tree
 
@@ -107,7 +107,7 @@ class TreeCompleter(Completer):
 
 class CommandValidator(Validator):
     """Validates commands against a command tree structure."""
-    
+
     def __init__(self, root: Dict[str, Any]):
         self.root = root
 
@@ -205,7 +205,7 @@ def _get_suggestor_rows(node: Dict[str, Any]) -> List[List[str]]:
         rows.append([f"<missing suggestor: {sugg_name}>", ""])
     return rows
 
-def setup_keybindings(commands_json: Dict[str, Any], 
+def setup_keybindings(commands_json: Dict[str, Any],
                      print_possible_completions: Callable[[List[str], Dict[str, Any]], None],
                      suggestors: Dict[str, Callable]) -> KeyBindings:
     """Set up key bindings for the CLI."""
@@ -270,6 +270,3 @@ def setup_keybindings(commands_json: Dict[str, Any],
         run_in_terminal(lambda: print_possible_completions(parts if parts else [], commands_json))
 
     return bindings
-    
-
-                

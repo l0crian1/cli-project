@@ -63,15 +63,15 @@ def load_commands_json() -> Dict:
         # Load the command structure
         with open("commands.json") as f:
             commands = json.load(f)
-        
+
         # Load the configuration schema
         with open("config.json") as f:
             config_schema = json.load(f)
-        
+
         # Add the config schema to set and delete commands
         commands["set"].update(config_schema)
-        commands["delete"].update(config_schema)
-        
+        #commands["delete"].update(config_schema)
+
         return commands
     except FileNotFoundError as e:
         print(f"Error: Required JSON file not found - {e.filename}")
@@ -145,10 +145,10 @@ def parse_config_command(command: str, root: Dict) -> Tuple[Dict, str]:
 def update_config_dict(existing_dict, new_dict, schema_node=None, path=None, value_to_delete=False):
     """Update an existing configuration dictionary with new values."""
     path = path or []
-    
+
     for key, value in new_dict.items():
         current_path = path + [key]
-        
+
         # Handle deletion
         if value is None or value_to_delete:
             if key in existing_dict:
@@ -175,10 +175,11 @@ def delete_from_config_dict(config_dict, delete_dict):
         return path
 
     def _delete_path(current, keys):
+        print("yes")
         if not keys:
             print("\nError: Cannot delete – no path specified\n")
             return False
-            
+
         *parents, last_key = keys
         for key in parents:
             if not isinstance(current, dict) or key not in current:
@@ -186,12 +187,14 @@ def delete_from_config_dict(config_dict, delete_dict):
             current = current[key]
 
         if isinstance(current, dict) and last_key in current:
+            print(current[last_key])
             del current[last_key]
             # Clean up empty parent dictionaries
             return True
         return False
 
     key_path = extract_path(delete_dict)
+    print(key_path)
     return _delete_path(config_dict, key_path)
 
 def populate_config_tree(config, show_tree, include_candidate=False, candidate_config=None, schema=None):
@@ -220,16 +223,18 @@ def populate_config_tree(config, show_tree, include_candidate=False, candidate_c
 
     # First populate with running config
     for key, value in config.items():
-        
+
         # Get the schema node for this key
         schema_node = get_schema_node(key, schema)
-        
+
         # If this key is under a tagNode or is a configured value, don't add a description
         if schema_node and schema_node.get("type") == "tagNode":
-            show_tree[key] = {"type": "node"}
+            #print(json.dumps(schema_node.get("description"),indent=4))
+            show_tree[key] = {"type": "tagNode"}
         else:
-            show_tree[key] = {"description": f"Show {key}", "type": "node"}
-            
+            # Handle the case where schema_node is None
+            description = schema_node.get("description", "") if schema_node else ""
+            show_tree[key] = {"description": description}
         if isinstance(value, dict):
             populate_config_tree(value, show_tree[key], schema=schema_node)
 
@@ -238,16 +243,17 @@ def populate_config_tree(config, show_tree, include_candidate=False, candidate_c
         temp_tree = {}
         for key, value in candidate_config.items():
             if value is not None:  # Skip deleted paths
-                
+
                 # Get the schema node for this key
                 schema_node = get_schema_node(key, schema)
-                
+
                 # If this key is under a tagNode or is a configured value, don't add a description
                 if schema_node and schema_node.get("type") == "tagNode":
-                    temp_tree[key] = {"type": "node"}
+                    temp_tree[key] = {"type": "tagNode"}
                 else:
-                    temp_tree[key] = {"description": f"Show {key}", "type": "node"}
-                    
+                    # Handle the case where schema_node is None
+                    description = schema_node.get("description", "") if schema_node else ""
+                    temp_tree[key] = {"description": description}
                 if isinstance(value, dict):
                     populate_config_tree(value, temp_tree[key], schema=schema_node)
         merge_trees(show_tree, temp_tree)
@@ -255,7 +261,7 @@ def populate_config_tree(config, show_tree, include_candidate=False, candidate_c
 def dict_to_set_commands(config_dict, current_path=None, show_deletions=False):
     if current_path is None:
         current_path = []
-    
+
     commands = []
     for key, value in config_dict.items():
         path = current_path + [key]
@@ -271,10 +277,10 @@ def dict_to_set_commands(config_dict, current_path=None, show_deletions=False):
 
 def show_subtree(parts, running_config, candidate_config):
     print("\nShowing Configuration:\n")
-    
+
     if len(parts) >= 2:
         if parts[1] == "commands":
-            show_type = parts[2] if len(parts) > 2 else "candidate"
+            show_type = parts[2] if len(parts) > 2 else None
             if show_type == "running":
                 commands = dict_to_set_commands(running_config)
                 print("Running configuration:")
@@ -282,15 +288,20 @@ def show_subtree(parts, running_config, candidate_config):
                 commands = dict_to_set_commands(candidate_config, show_deletions=True)
                 print("Candidate configuration (uncommitted changes):")
             else:
-                print(f"Invalid show command: {' '.join(parts)}")
-                return
-                
+                # If no type specified, show running unless candidate has changes
+                if candidate_config:  # If candidate config is not empty
+                    commands = dict_to_set_commands(candidate_config, show_deletions=True)
+                    print("Candidate configuration (uncommitted changes):")
+                else:  # If candidate config is empty
+                    commands = dict_to_set_commands(running_config)
+                    print("Running configuration:")
+
             if commands:
                 print("\n".join(commands))
             else:
                 print("No configuration commands found.")
             return
-        
+
         elif parts[1] == "running":
             print("Running configuration (raw format):")
             print(json.dumps(running_config, indent=2))
@@ -299,7 +310,7 @@ def show_subtree(parts, running_config, candidate_config):
             print("Candidate configuration (raw format):")
             print(json.dumps(candidate_config, indent=2))
             return
-    
+
     # For bare 'show' command or 'show <path>'
     if len(parts) == 1:  # Just 'show'
         if candidate_config:  # If candidate config is not empty
@@ -309,12 +320,12 @@ def show_subtree(parts, running_config, candidate_config):
             print("Running configuration:")
             print(json.dumps(running_config, indent=2))
         return
-        
+
     # For 'show <path>', use merged config
     merged_config = running_config.copy()
     update_config_dict(merged_config, candidate_config)
     node = merged_config
-    
+
     for part in parts[1:]:
         if isinstance(node, dict) and part in node:
             node = node[part]
@@ -326,12 +337,12 @@ def show_subtree(parts, running_config, candidate_config):
 def handle_commit(running_config, candidate_config):
     try:
         # Get list of scripts that need to be run
-        scripts_to_run = get_scripts_to_run(candidate_config)
+        scripts_to_run = get_scripts_to_run(candidate_config, running_config)
         print("\nScripts that will be run:", scripts_to_run)
-        
+
         # Generate config using the merged running and candidate configs
         merged_config = running_config.copy()
-        
+
         def get_full_path(d, current_path=None):
             if current_path is None:
                 current_path = []
@@ -346,24 +357,24 @@ def handle_commit(running_config, candidate_config):
 
         # Get all paths marked for deletion
         paths_to_delete = get_full_path(candidate_config)
-        
+
         # Delete specific paths from merged config
         def delete_path(config, path):
             if not path:
                 return
             current = config
             *parents, last = path
-            
+
             # Navigate to parent of the node to delete
             for key in parents:
                 if key not in current or not isinstance(current[key], dict):
                     return
                 current = current[key]
-            
+
             # Delete the node
             if last in current:
                 del current[last]
-                
+
             # Clean up empty parent dictionaries
             if not current:
                 parent = config
@@ -392,13 +403,19 @@ def handle_commit(running_config, candidate_config):
         # Add/modify remaining items from candidate config
         process_additions(merged_config, candidate_config)
 
-        # Run each script with the merged configuration
+        # Create a dictionary with both the merged config and the paths to delete
+        script_input = {
+            "config": merged_config,
+            "deletions": paths_to_delete
+        }
+
+        # Run each script with the merged configuration and deletion paths
         for script in scripts_to_run:
             script_path = script  # Use the script path as-is from config.json
             try:
                 process = subprocess.run(
                     ['python3', script_path],
-                    input=json.dumps(merged_config),
+                    input=json.dumps(script_input),
                     text=True,
                     capture_output=True,
                     check=True
@@ -410,12 +427,12 @@ def handle_commit(running_config, candidate_config):
                 print(f"\nError running {script}:")
                 print(e.stderr)
                 raise Exception(f"Script {script} failed with return code {e.returncode}")
-        
+
         # Update running config with candidate changes
         running_config.clear()
         running_config.update(merged_config)
-        candidate_config.clear()  # Clear candidate config after successful commit
-        
+        candidate_config.clear()
+
         print("\nCommit successful - Configuration changes have been applied")
     except Exception as e:
         print(f"Error during commit:\n{e}")
@@ -426,7 +443,7 @@ def handle_delete_command(running_config, candidate_config, parsed_command, part
         # If it exists in candidate, delete it from there
         delete_from_config_dict(candidate_config, parsed_command)
         return
-    
+
     # If not in candidate, check if it exists in running config
     if key_exists_in_config(running_config, parsed_command):
         # If it exists in running, mark it for deletion in candidate by preserving the path
@@ -441,7 +458,7 @@ def handle_delete_command(running_config, candidate_config, parsed_command, part
 
         mark_for_deletion(candidate_config, parsed_command)
         return
-    
+
     # If path doesn't exist in either config
     print(f"\nError: Cannot delete – path {' '.join(parts[1:])} does not exist in either configuration\n")
 
@@ -477,6 +494,44 @@ def compare_configs(running_config, candidate_config, as_commands=False):
             current = current[part]
         return current
 
+    def get_all_deleted_paths(config, prefix=None):
+        if prefix is None:
+            prefix = []
+        paths = []
+        for key, value in config.items():
+            current_path = prefix + [key]
+            if value is None:
+                paths.append(current_path)
+            elif isinstance(value, dict):
+                paths.extend(get_all_deleted_paths(value, current_path))
+        return paths
+
+    def get_all_running_paths(config, prefix=None):
+        if prefix is None:
+            prefix = []
+        paths = []
+        for key, value in config.items():
+            current_path = prefix + [key]
+            paths.append(current_path)
+            if isinstance(value, dict):
+                paths.extend(get_all_running_paths(value, current_path))
+        return paths
+
+    def is_parent_path(path, all_paths):
+        """Check if a path is a parent of any other path in the list."""
+        path_str = " ".join(path)
+        return any(" ".join(p).startswith(path_str + " ") for p in all_paths)
+
+    def get_most_specific_paths(paths):
+        """Filter out parent paths if a more specific child path exists."""
+        result = []
+        for path in paths:
+            path_str = " ".join(path)
+            # Check if this path is a parent of any other path
+            if not any(" ".join(p).startswith(path_str + " ") for p in paths if p != path):
+                result.append(path)
+        return result
+
     running_paths = get_all_paths(running_config)
     candidate_paths = get_all_paths(candidate_config)
 
@@ -484,7 +539,7 @@ def compare_configs(running_config, candidate_config, as_commands=False):
         # Show differences as commands
         added = []
         deleted = []
-        
+
         # Find additions and modifications
         for path, value in candidate_paths.items():
             path_parts = path.split()
@@ -494,6 +549,29 @@ def compare_configs(running_config, candidate_config, as_commands=False):
                     deleted.append(f"- delete {path}")
             elif path not in running_paths:
                 added.append(f"+ set {path}")
+
+        # Get all deleted paths
+        deleted_paths = get_all_deleted_paths(candidate_config)
+        
+        # Get all running paths
+        all_running_paths = get_all_running_paths(running_config)
+        
+        # For each deleted path, check if it's a parent of any running paths
+        for deleted_path in deleted_paths:
+            deleted_path_str = " ".join(deleted_path)
+            for running_path in all_running_paths:
+                running_path_str = " ".join(running_path)
+                if running_path_str.startswith(deleted_path_str + " ") and running_path_str not in [d.split(" ", 2)[2] for d in deleted]:
+                    deleted.append(f"- delete {running_path_str}")
+
+        # Filter out parent paths if a more specific child path exists
+        if deleted:
+            # Extract just the paths from the delete commands
+            delete_paths = [d.split(" ", 2)[2] for d in deleted]
+            # Get the most specific paths
+            most_specific_paths = get_most_specific_paths([p.split() for p in delete_paths])
+            # Rebuild the delete commands with only the most specific paths
+            deleted = [f"- delete {' '.join(path)}" for path in most_specific_paths]
 
         if added or deleted:
             if deleted:
@@ -549,21 +627,83 @@ def create_prompt_session(commands_json):
         history=FileHistory(os.path.expanduser("~/.cfg_history"))
     )
 
+def handle_set_command(config, path_parts, value, commands_json, running_config=None):
+    """Handle the 'set' command by updating the configuration."""
+    if not path_parts:
+        print("Error: No path specified")
+        return config
+
+    # Validate the command against the schema
+    try:
+        # Create a temporary command string for validation
+        command_str = "set " + " ".join(path_parts)
+        if value is not None:
+            command_str += " " + str(value)
+        
+        # Validate the command
+        CommandValidator(commands_json).validate(Document(command_str))
+    except ValidationError as ve:
+        print(f"\n{ve.message}\n")
+        return config
+
+    # Build the full path string for exact matching
+    full_path = " ".join(path_parts)
+    if value is not None:
+        full_path += " " + str(value)
+
+    # Check if this exact path already exists
+    def get_all_paths(d, prefix=None):
+        if prefix is None:
+            prefix = []
+        paths = []
+        for key, value in d.items():
+            current_path = prefix + [key]
+            if isinstance(value, dict):
+                if not value:  # Empty dict means leaf node
+                    paths.append(" ".join(current_path))
+                paths.extend(get_all_paths(value, current_path))
+            else:
+                paths.append(" ".join(current_path + [str(value)]))
+        return paths
+
+    # Get all existing paths from both configs
+    existing_paths = get_all_paths(config)  # Candidate config paths
+    if running_config:
+        existing_paths.extend(get_all_paths(running_config))  # Running config paths
+
+    if full_path in existing_paths:
+        print(f"Error: Configuration '{full_path}' already exists")
+        return config
+
+    # Navigate to the parent node and create the path
+    current = config
+    for part in path_parts[:-1]:
+        if part not in current:
+            current[part] = {}
+        current = current[part]
+
+    # Set the final value
+    last_part = path_parts[-1]
+    current[last_part] = value if value is not None else {}
+
+    return config
+
 def main():
     commands_json = load_commands_json()
     session = create_prompt_session(commands_json)
     running_config = load_saved_config()  # Load the saved/running config
     candidate_config = {}  # Initialize empty candidate config
-    
+
     # Initialize command trees with running config only
     populate_config_tree(running_config, commands_json["show"], schema=commands_json["set"])  # Use set schema for show
-    populate_config_tree(running_config, commands_json["delete"], include_candidate=True, 
+    populate_config_tree(running_config, commands_json["delete"], include_candidate=True,
                         candidate_config=candidate_config, schema=commands_json["set"])  # Use set schema for delete
 
     print("Entering configuration mode (type 'exit' to quit, use '?' to list options)\n")
     restore_text = None
 
     while True:
+        update_dict = False
         try:
             prompt_str = f"{os.getlogin()}@{socket.gethostname()}# "
             raw_input = session.prompt(prompt_str, default=restore_text or "")
@@ -579,10 +719,9 @@ def main():
                     raise EOFError()
                 if user_input == "commit":
                     handle_commit(running_config, candidate_config)
+                    if not update_dict:
+                        update_dict = True
                     # After commit, update command trees with new running config
-                    populate_config_tree(running_config, commands_json["show"], schema=commands_json["set"])
-                    populate_config_tree(running_config, commands_json["delete"], include_candidate=True, 
-                                      candidate_config=candidate_config, schema=commands_json["set"])
                     continue
                 if user_input == "save":
                     save_current_config(running_config)
@@ -591,9 +730,8 @@ def main():
                     candidate_config.clear()  # Clear all candidate changes
                     print("\nDiscarded all uncommitted changes")
                     # Update command trees after discarding changes
-                    populate_config_tree(running_config, commands_json["show"], schema=commands_json["set"])
-                    populate_config_tree(running_config, commands_json["delete"], include_candidate=True, 
-                                      candidate_config=candidate_config, schema=commands_json["set"])
+                    if not update_dict:
+                        update_dict = True
                     continue
 
                 restore_text = None
@@ -608,17 +746,23 @@ def main():
                     parsed_command, action = parse_config_command(user_input, commands_json)
 
                     if action == "set":
-                        update_config_dict(candidate_config, parsed_command, commands_json)
+                        # Extract the value from the parsed command
+                        value = None
+                        if isinstance(parsed_command, dict) and len(parsed_command) == 1:
+                            key = next(iter(parsed_command))
+                            if not isinstance(parsed_command[key], dict):
+                                value = parsed_command[key]
+                                parsed_command = {key: {}}
+                        
+                        handle_set_command(candidate_config, parts[1:], value, commands_json, running_config)
+                        if not update_dict:
+                            update_dict = True
                         # Update command trees to include new candidate config
-                        populate_config_tree(running_config, commands_json["show"], schema=commands_json["set"])
-                        populate_config_tree(running_config, commands_json["delete"], include_candidate=True, 
-                                          candidate_config=candidate_config, schema=commands_json["set"])
                     elif action == "delete":
                         handle_delete_command(running_config, candidate_config, parsed_command, parts)
+                        if not update_dict:
+                            update_dict = True
                         # Update command trees after deletion
-                        populate_config_tree(running_config, commands_json["show"], schema=commands_json["set"])
-                        populate_config_tree(running_config, commands_json["delete"], include_candidate=True, 
-                                          candidate_config=candidate_config, schema=commands_json["set"])
                     elif action == "show":
                         show_subtree(parts, running_config, candidate_config)
 
@@ -626,6 +770,11 @@ def main():
                     print(f"\n{ve.message}\n")
                     restore_text = ""  # Reset to empty prompt instead of restoring to last keyword
                     continue
+            if update_dict:
+                populate_config_tree(running_config, commands_json["show"], schema=commands_json["set"])
+                populate_config_tree(running_config, commands_json["delete"], include_candidate=True,
+                                      candidate_config=candidate_config, schema=commands_json["set"])
+
 
         except KeyboardInterrupt:
             restore_text = None
@@ -637,4 +786,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    

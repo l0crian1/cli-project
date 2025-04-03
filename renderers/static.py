@@ -154,15 +154,59 @@ def apply_config(config_str: str) -> bool:
         print(f"Error: {str(e)}")
         return False
 
+def check_for_deletions(deletions: List[List[str]]) -> bool:
+    """
+    Check if any of the deletion paths affect the static routes configuration.
+    
+    Args:
+        deletions: List of paths marked for deletion
+        
+    Returns:
+        bool: True if any deletion path affects static routes, False otherwise
+    """
+    for path in deletions:
+        # Check if this path starts with ['protocols', 'static']
+        if len(path) >= 2 and path[0] == 'protocols' and path[1] == 'static':
+            return True
+        # Also check if the entire protocols section is being deleted
+        if len(path) == 1 and path[0] == 'protocols':
+            return True
+    return False
+
 if __name__ == "__main__":
     # Read and parse the configuration from stdin
-    config = json.load(sys.stdin)
+    input_data = json.load(sys.stdin)
+    
+    # Check if we have the new format with deletions
+    if isinstance(input_data, dict) and "config" in input_data and "deletions" in input_data:
+        config = input_data["config"]
+        deletions = input_data["deletions"]
+        
+        # Check if any deletions affect static routes
+        has_static_deletions = check_for_deletions(deletions)
+        
+        if has_static_deletions:
+            print("\nStatic routes section marked for deletion")
+            # If the entire static section is being deleted, we should clear all static routes
+            # This will be handled by the empty config being passed to frr-reload
+    else:
+        # Legacy format, just use the input directly as the config
+        config = input_data
+        has_static_deletions = False
+    
     print("\nStatic Route Configuration Received:")
-    print(json.dumps(config, indent=2))
+    print(json.dumps(config.get("protocols", {}).get("static", {}).get("route", {}), indent=2))
     
-    # Generate the configuration
-    config_str = generate_static_routes_config(config)
+    # Check if we have any static routes to apply or if we need to clear existing routes
+    static_routes = config.get("protocols", {}).get("static", {}).get("route", {})
+    has_static_routes = bool(static_routes)
     
-    # Apply the configuration
-    if not apply_config(config_str):
-        sys.exit(1)  # Exit with error if configuration failed
+    # Only apply changes if we have routes to apply or if we're deleting routes
+    if has_static_routes or has_static_deletions:
+        # Generate the configuration
+        config_str = generate_static_routes_config(config)
+        
+        # Apply the configuration
+        apply_config(config_str)
+    else:
+        print("\nNo static routes to apply or clear")

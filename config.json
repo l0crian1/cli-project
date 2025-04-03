@@ -1,5 +1,7 @@
 {
     "protocols": {
+        "description": "Routing Protocols",
+        "type": "node",
         "bgp": {
             "script": "renderers/bgp.py",
             "address-family": {
@@ -41,17 +43,19 @@
             }
         },
         "static": {
+            "description": "Static Routing",
+            "type": "node",
             "script": "renderers/static.py",
             "route": {
-                "description": "Lookup specific route",
+                "description": "Static IPv4 Route",
                 "type": "node",
                 "<x.x.x.x/x>": {
-                    "description": "Lookup specific route",
+                    "description": "IPv4 Static Route",
                     "type": "tagNode",
                     "validator": "ip-prefix",
                     "multi": true,
                     "next-hop": {
-                        "description": "Next hop for the static route",
+                        "description": "Next-hop IPv4 router address",
                         "type": "node",
                         "<x.x.x.x>": {
                             "description": "Lookup specific route",
@@ -61,10 +65,10 @@
                             "suggestor_args": ["eth"],
                             "multi": true,
                             "distance": {
-                                "description": "Lookup specific route",
+                                "description": "Distance for this route",
                                 "type": "node",
                                 "<1-255>": {
-                                    "description": "Lookup specific route",
+                                    "description": "Distance for this route",
                                     "type": "tagNode",
                                     "validator": "num-1-255"
                                 }
@@ -74,6 +78,16 @@
                 }
             }
         }
+    },
+    "services": {
+    "description": "Routing Protocols",
+    "type": "node",
+    "test": {
+        "script": "renderers/test.py",
+        "address-family": {
+            "description": "Lookup specific route",
+            "type": "node"
+        }
+    }
     }
 }
-  

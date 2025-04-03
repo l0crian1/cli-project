@@ -1,3 +1,20 @@
 candidate and running configs
 
 partial line match -- like del protocols instead of delete protocols
+
+Issue with completon when there's a configured item:
+    Possible completions:
+
+    distance  Lookup specific route
+    clari@DESKTOP-37RABMR# set protocols static route 1.1.1.1/32 next-hop 1.1.1.1 distance                                                                          
+    clari@DESKTOP-37RABMR# set protocols static route 1.1.1.1/32 next-hop 1.1.1.1
+
+    Possible completions:
+
+    <x.x.x.x/x>  Lookup specific route
+    1.1.1.1/32
+    No completions found.
+
+    clari@DESKTOP-37RABMR# set protocols static route 1.1.1.1/32 next-hop 1.1.1.1
+
+    This also is stored even if you discard the candidate config
